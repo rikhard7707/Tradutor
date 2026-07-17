@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <link rel="manifest" href="manifest.json" />
+  <title>Tradutor de Voz PT ⇄ EN</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+      padding: 30px;
+      width: 100%;
+      max-width: 500px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 25px;
+      font-size: 1.5rem;
+    }
+    .section {
+      margin-bottom: 25px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.3s;
+      background: #fafafa;
+      margin-bottom: 12px;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #667eea;
+      background: white;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    button:active {
+      transform: translateY(0);
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .btn-pt {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-en {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+    }
+    .status {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666;
+      margin-top: 10px;
+      min-height: 20px;
+    }
+    .status.listening {
+      color: #667eea;
+      font-weight: 600;
+    }
+    .status.error {
+      color: #f5576c;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+      color: #444;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Tradutor de Voz<br> PT ⇄ EN</h1>
+
+    <div class="section">
+      <!-- Botão Português -->
+      <button id="btn-pt" class="btn-pt">
+        🎤 Falar em Português
+      </button>
+      <div id="status-pt" class="status"></div>
+
+      <!-- Campo Português -->
+      <label for="text-pt">Português:</label>
+      <input type="text" id="text-pt" placeholder="O texto em português aparecerá aqui..." />
+
+      <!-- Campo Inglês -->
+      <label for="text-en">English:</label>
+      <input type="text" id="text-en" placeholder="The English translation will appear here..." />
+
+      <!-- Botão Inglês -->
+      <button id="btn-en" class="btn-en" style="margin-top: 12px;">
+        🎤 Speak in English
+      </button>
+      <p>Autor: Ricardo Ataide</p>
+      <div id="status-en" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // Verificação de suporte à Web Speech API
+    // ==========================================
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechSynthesis = window.speechSynthesis;
+
+    if (!SpeechRecognition) {
+      alert('Seu navegador não suporta reconhecimento de fala. Use o Google Chrome.');
+    }
+
+    // ==========================================
+    // Elementos do DOM
+    // ==========================================
+    const btnPt = document.getElementById('btn-pt');
+    const btnEn = document.getElementById('btn-en');
+    const statusPt = document.getElementById('status-pt');
+    const statusEn = document.getElementById('status-en');
+    const textPt = document.getElementById('text-pt');
+    const textEn = document.getElementById('text-en');
+
+    // ==========================================
+    // Função de tradução (usando API gratuita)
+    // ==========================================
+    async function translateText(text, from, to) {
+      if (!text.trim()) return '';
+      
+      try {
+        const response = await fetch(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`
+        );
+        const data = await response.json();
+        
+        if (data.responseStatus === 200) {
+          return data.responseData.translatedText;
+        } else {
+          console.warn('Erro na tradução:', data);
+          return text;
+        }
+      } catch (error) {
+        console.error('Erro ao traduzir:', error);
+        return text;
+      }
+    }
+
+    // ==========================================
+    // Função de síntese de voz (text-to-speech)
+    // ==========================================
+    function speakText(text, lang) {
+      if (!text.trim() || !SpeechSynthesis) return;
+
+      SpeechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang;
+      utterance.rate = 0.9;
+      utterance.pitch = 1;
+
+      SpeechSynthesis.speak(utterance);
+    }
+
+    // ==========================================
+    // Fluxo: Português → Inglês
+    // ==========================================
+    let recognitionPt = null;
+
+    btnPt.addEventListener('click', async () => {
+      if (!SpeechRecognition) {
+        statusPt.textContent = 'Reconhecimento de fala não suportado';
+        statusPt.className = 'status error';
+        return;
+      }
+
+      if (recognitionPt) {
+        recognitionPt.stop();
+      }
+
+      recognitionPt = new SpeechRecognition();
+      recognitionPt.lang = 'pt-BR';
+      recognitionPt.interimResults = false;
+      recognitionPt.maxAlternatives = 1;
+
+      recognitionPt.onstart = () => {
+        statusPt.textContent = '🎤 Ouvindo... Fale agora!';
+        statusPt.className = 'status listening';
+        btnPt.disabled = true;
+        btnEn.disabled = true;
+        textPt.value = '';
+        textEn.value = '';
+      };
+
+      recognitionPt.onend = () => {
+        statusPt.textContent = '';
+        statusPt.className = 'status';
+        btnPt.disabled = false;
+        btnEn.disabled = false;
+      };
+
+      recognitionPt.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        textPt.value = transcript;
+
+        statusPt.textContent = '⏳ Traduzindo...';
+        const translated = await translateText(transcript, 'pt', 'en');
+        textEn.value = translated;
+
+        statusPt.textContent = '🔊 Falando em inglês...';
+        speakText(translated, 'en-US');
+
+        setTimeout(() => {
+          statusPt.textContent = '✓ Concluído!';
+          setTimeout(() => {
+            statusPt.textContent = '';
+            statusPt.className = 'status';
+          }, 2000);
+        }, 1000);
+      };
+
+      recognitionPt.onerror = (event) => {
+        statusPt.textContent = `❌ Erro: ${event.error}`;
+        statusPt.className = 'status error';
+        btnPt.disabled = false;
+        btnEn.disabled = false;
+      };
+
+      recognitionPt.start();
+    });
+
+    // ==========================================
+    // Fluxo: Inglês → Português
+    // ==========================================
+    let recognitionEn = null;
+
+    btnEn.addEventListener('click', async () => {
+      if (!SpeechRecognition) {
+        statusEn.textContent = 'Speech recognition not supported';
+        statusEn.className = 'status error';
+        return;
+      }
+
+      if (recognitionEn) {
+        recognitionEn.stop();
+      }
+
+      recognitionEn = new SpeechRecognition();
+      recognitionEn.lang = 'en-US';
+      recognitionEn.interimResults = false;
+      recognitionEn.maxAlternatives = 1;
+
+      recognitionEn.onstart = () => {
+        statusEn.textContent = '🎤 Listening... Speak now!';
+        statusEn.className = 'status listening';
+        btnEn.disabled = true;
+        btnPt.disabled = true;
+        textPt.value = '';
+        textEn.value = '';
+      };
+
+      recognitionEn.onend = () => {
+        statusEn.textContent = '';
+        statusEn.className = 'status';
+        btnEn.disabled = false;
+        btnPt.disabled = false;
+      };
+
+      recognitionEn.onresult = async (event) => {
+        const transcript = event.results[0][0].transcript;
+        textEn.value = transcript;
+
+        statusEn.textContent = '⏳ Translating...';
+        const translated = await translateText(transcript, 'en', 'pt');
+        textPt.value = translated;
+
+        statusEn.textContent = '🔊 Speaking in Portuguese...';
+        speakText(translated, 'pt-BR');
+
+        setTimeout(() => {
+          statusEn.textContent = '✓ Complete!';
+          setTimeout(() => {
+            statusEn.textContent = '';
+            statusEn.className = 'status';
+          }, 2000);
+        }, 1000);
+      };
+
+      recognitionEn.onerror = (event) => {
+        statusEn.textContent = `❌ Error: ${event.error}`;
+        statusEn.className = 'status error';
+        btnEn.disabled = false;
+        btnPt.disabled = false;
+      };
+
+      recognitionEn.start();
+    });
+  </script>
+</body>
+</html>
